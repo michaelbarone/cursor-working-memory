@@ -17,21 +17,17 @@ JSON Configuration:
     }
 ```
 
-After disabling the editer, add the following rule files to the .cursor/rules directory:
+After disabling the editer, ensure the the following rule files are in your .cursor/rules directory:
 - 010-docs-memory-knowledge-management.mdc
 - 011-docs-plan-management.mdc
 
-> 
-> #### Deprecation Notice ⚠️
-> 
-> Copy and rename the `.cursorrules.example` into the root directory as `.cursorrules`.  customize as needed
->
->  `.cursorrules` are deprecated and will be removed soon.  Use the .cursor/rules files outlined above.
-
+If copying the .cursor/rules folder from this repo into your project, review the 002-rule-file-naming.mdc file to see the naming schemes, and remove any files that arent needed for your environment and need.  using the 004-ai-auto-create-rule.mdc you can ask the agent to create new rules for your framework, languages and other best practices you want to add.
 
 ## Project Setup
 
 update the `docs/project-context.md` with specifics for this project for things like directory structure, key frameworks and depenedencies, and best practices.
+
+you can do this more as the project evolves to ensure this file is always up to date.
 
 Shell Command:
 
@@ -39,16 +35,6 @@ Shell Command:
 Can you ensure the @/docs/project-context.md file matches the project structure, and highlights key frameworks, dependencies and best practices for this project
 
 @package.json
-@/docs/
-```
-
-ask the Agent to check the /docs folder to the Docs Dir Structure below, and create any missing folders
-
-Shell Command:
-
-```shell
-Can you ensure the /docs folder directory matches the structure outlined in the @/docs/README.md file
-
 @/docs/
 ```
 
@@ -79,6 +65,8 @@ Can you ensure the /docs folder directory matches the structure outlined in the 
 
 ## Quickly Adding Future Tasks
 
+A future task is a quick note for something you want to turn into a plan later.
+
 To quickly add tasks to the Future Tasks section in plan.md, follow these prompts:
 
 1. **Add a single future task**:
@@ -91,7 +79,7 @@ To quickly add tasks to the Future Tasks section in plan.md, follow these prompt
    ```
 
    ```shell
-   I want to add a new future task for XYZ feature.
+   I want to add a new future task for XYZ feature. ask me any clarifying questions.
    ```
 
 2. **Add multiple future tasks at once**:
@@ -119,7 +107,9 @@ To quickly add tasks to the Future Tasks section in plan.md, follow these prompt
 
 ## Creating New Plans
 
-To create a new plan using the AI assistant, follow these prompts:
+To create a new plan using the AI assistant, follow the prompts below.
+
+For best results, add clear requirements to the prompts and refine the plan.  Even better, working with the Agent in `Ask` mode to refine the plan before letting the `Agent` write files.  Ask for several options to pick from can be helpful to weed out bad initial responses.  Remind the agent to ask you questions to help clarify and improve decision making.
 
 1. **Create a plan from a future task**:
 
@@ -161,8 +151,6 @@ To create a new plan using the AI assistant, follow these prompts:
    Create a new task plan for [feature/bugfix description] 
    that builds on the work done in [previous task].
    ```
-
-For best results, add clear requirements to the prompts and refine the plan.  Even better, working with the Agent in `Ask` mode to refine the plan before letting the `Agent` write files.  Remind the agent to ask you questions to help clarify and improve decision making.
 
 ## Managing Task Milestones
 
