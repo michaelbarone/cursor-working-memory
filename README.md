@@ -17,6 +17,8 @@ JSON Configuration:
     }
 ```
 
+NOTE: to get to the json settings view, open the "VS Code Settings" from the preferences menu, once the setting are open, there should be an icon next to the 3 dots in the upper right corner of the settings tab, that will "Open Settings (JSON)" to get to the json editor where you can paste the above in.
+
 After disabling the editer, ensure the the following rule files are in your .cursor/rules directory:
 
 - 010-docs-memory-knowledge-management.mdc
