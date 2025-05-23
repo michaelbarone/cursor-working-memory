@@ -1,0 +1,512 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Jest and React Native Testing Library Standards
+
+Guidelines for writing effective and maintainable tests for React Native applications.
+
+<rule>
+name: jest_react_native_testing_standards
+description: Standards for testing React Native applications with Jest and React Native Testing Library focusing on component testing, mocking, and test organization
+
+filters:
+  - type: file_extension
+    pattern: "\\.(spec|test)\\.(jsx?|tsx?)$"
+  - type: content
+    pattern: "jest|test|describe|it|expect|render|screen|fireEvent"
+
+actions:
+  - type: suggest
+    message: |
+      ## Jest and React Native Testing Standards
+
+      ### Test Organization
+
+      1. Test file structure:
+         ```typescript
+         // Component: UserProfile.tsx
+         // Test file: UserProfile.test.tsx
+         
+         import React from 'react';
+         import { render, screen, fireEvent } from '@testing-library/react-native';
+         import UserProfile from '../UserProfile';
+         
+         // Mock dependencies
+         jest.mock('@/hooks/useUser', () => ({
+           useUser: jest.fn().mockReturnValue({
+             user: { id: '1', name: 'Test User' },
+             loading: false,
+             error: null,
+           }),
+         }));
+         
+         describe('UserProfile', () => {
+           // Setup and teardown
+           beforeEach(() => {
+             jest.clearAllMocks();
+           });
+           
+           // Group tests by functionality
+           describe('when rendering', () => {
+             it('displays user information', () => {
+               render(<UserProfile userId="1" />);
+               expect(screen.getByText('Test User')).toBeTruthy();
+             });
+           });
+           
+           describe('when interacting', () => {
+             it('handles button press', () => {
+               const mockOnPress = jest.fn();
+               render(<UserProfile userId="1" onProfileEdit={mockOnPress} />);
+               
+               fireEvent.press(screen.getByText('Edit Profile'));
+               
+               expect(mockOnPress).toHaveBeenCalledWith('1');
+             });
+           });
+         });
+         ```
+
+      2. Test naming conventions:
+         ```typescript
+         // Component/feature being tested
+         describe('UserProfile', () => {
+           // State or condition being tested
+           describe('when user data is loading', () => {
+             // Expected behavior
+             it('displays a loading indicator', () => {
+               // Test implementation
+             });
+           });
+           
+           describe('when user data fails to load', () => {
+             it('displays an error message', () => {
+               // Test implementation
+             });
+             
+             it('shows a retry button', () => {
+               // Test implementation
+             });
+           });
+         });
+         ```
+
+      ### Component Testing
+
+      1. Rendering and querying:
+         ```typescript
+         // GOOD: Use proper queries
+         it('renders correctly', () => {
+           render(<ProfileForm username="testuser" />);
+           
+           // Prioritize accessibility and user-centric queries
+           // 1. Role-based queries (most preferred)
+           expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+           
+           // 2. Text content
+           expect(screen.getByText('Profile Settings')).toBeTruthy();
+           
+           // 3. Form elements
+           expect(screen.getByLabelText('Username')).toBeTruthy();
+           
+           // 4. Test IDs (when other options not feasible)
+           expect(screen.getByTestId('profile-form')).toBeTruthy();
+         });
+         ```
+
+      2. User interaction:
+         ```typescript
+         // GOOD: Test user interactions
+         it('submits the form with user data', () => {
+           const mockSubmit = jest.fn();
+           render(<LoginForm onSubmit={mockSubmit} />);
+           
+           // Fill in form fields
+           fireEvent.changeText(screen.getByLabelText('Email'), 'user@example.com');
+           fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+           
+           // Submit form
+           fireEvent.press(screen.getByRole('button', { name: 'Login' }));
+           
+           // Verify submission
+           expect(mockSubmit).toHaveBeenCalledWith({
+             email: 'user@example.com',
+             password: 'password123',
+           });
+         });
+         ```
+
+      3. Async testing:
+         ```typescript
+         // GOOD: Proper async testing
+         it('displays data after loading', async () => {
+           render(<DataList />);
+           
+           // Check loading state
+           expect(screen.getByText('Loading...')).toBeTruthy();
+           
+           // Wait for data to load
+           await waitFor(() => {
+             expect(screen.queryByText('Loading...')).toBeNull();
+           });
+           
+           // Verify data displayed
+           expect(screen.getByText('Item 1')).toBeTruthy();
+         });
+         ```
+
+      ### Mocking
+
+      1. Component dependencies:
+         ```typescript
+         // GOOD: Mock dependencies
+         // Mock modules
+         jest.mock('@react-navigation/native', () => ({
+           useNavigation: () => ({
+             navigate: jest.fn(),
+           }),
+         }));
+         
+         // Mock API calls
+         jest.mock('@/services/api', () => ({
+           fetchData: jest.fn().mockResolvedValue({ items: [{ id: 1, name: 'Item 1' }] }),
+         }));
+         ```
+
+      2. Hooks mocking:
+         ```typescript
+         // GOOD: Mock custom hooks
+         jest.mock('@/hooks/useAuth', () => ({
+           useAuth: jest.fn().mockReturnValue({
+             user: { id: '1', name: 'Test User' },
+             isAuthenticated: true,
+             login: jest.fn(),
+             logout: jest.fn(),
+           }),
+         }));
+         
+         // Usage in test
+         import { useAuth } from '@/hooks/useAuth';
+         
+         it('renders authenticated user view', () => {
+           render(<ProfileScreen />);
+           expect(screen.getByText('Test User')).toBeTruthy();
+         });
+         
+         it('logs out the user', () => {
+           const mockLogout = jest.fn();
+           (useAuth as jest.Mock).mockReturnValue({
+             user: { id: '1', name: 'Test User' },
+             isAuthenticated: true,
+             logout: mockLogout,
+           });
+           
+           render(<ProfileScreen />);
+           fireEvent.press(screen.getByText('Logout'));
+           
+           expect(mockLogout).toHaveBeenCalled();
+         });
+         ```
+
+      3. Context mocking:
+         ```typescript
+         // GOOD: Mock context providers
+         const mockAuthContext = {
+           user: { id: '1', name: 'Test User' },
+           isAuthenticated: true,
+           login: jest.fn(),
+           logout: jest.fn(),
+         };
+         
+         it('renders with context values', () => {
+           render(
+             <AuthContext.Provider value={mockAuthContext}>
+               <ProfileScreen />
+             </AuthContext.Provider>
+           );
+           
+           expect(screen.getByText('Test User')).toBeTruthy();
+         });
+         ```
+
+      ### Test Helpers
+
+      1. Custom render function:
+         ```typescript
+         // test/test-utils.tsx
+         import React, { ReactElement } from 'react';
+         import { render, RenderOptions } from '@testing-library/react-native';
+         import { ThemeProvider } from '@/theme';
+         import { AuthProvider } from '@/auth';
+         
+         const AllProviders = ({ children }) => (
+           <ThemeProvider>
+             <AuthProvider>
+               {children}
+             </AuthProvider>
+           </ThemeProvider>
+         );
+         
+         const customRender = (
+           ui: ReactElement,
+           options?: Omit<RenderOptions, 'wrapper'>
+         ) => render(ui, { wrapper: AllProviders, ...options });
+         
+         // Re-export everything
+         export * from '@testing-library/react-native';
+         
+         // Override render method
+         export { customRender as render };
+         ```
+
+      2. Test fixtures:
+         ```typescript
+         // test/fixtures/users.ts
+         export const mockUsers = [
+           {
+             id: '1',
+             name: 'Test User 1',
+             email: 'user1@example.com',
+             role: 'user',
+           },
+           {
+             id: '2',
+             name: 'Test User 2',
+             email: 'user2@example.com',
+             role: 'admin',
+           },
+         ];
+         
+         // Usage in test
+         import { mockUsers } from '../../test/fixtures/users';
+         
+         it('renders user list', () => {
+           render(<UserList users={mockUsers} />);
+           
+           expect(screen.getByText('Test User 1')).toBeTruthy();
+           expect(screen.getByText('Test User 2')).toBeTruthy();
+         });
+         ```
+
+      ### Navigation Testing
+
+      1. Testing screen navigation:
+         ```typescript
+         // GOOD: Test navigation
+         it('navigates to details screen on press', () => {
+           const mockNavigate = jest.fn();
+           (useNavigation as jest.Mock).mockReturnValue({
+             navigate: mockNavigate,
+           });
+           
+           render(<ItemList items={mockItems} />);
+           fireEvent.press(screen.getByText('Item 1'));
+           
+           expect(mockNavigate).toHaveBeenCalledWith('Details', { id: '1' });
+         });
+         ```
+
+      2. Testing screen components:
+         ```typescript
+         // GOOD: Full navigation testing
+         import { NavigationContainer } from '@react-navigation/native';
+         import { createStackNavigator } from '@react-navigation/stack';
+         
+         const Stack = createStackNavigator();
+         const MockedNavigator = ({ component, params = {} }) => (
+           <NavigationContainer>
+             <Stack.Navigator>
+               <Stack.Screen
+                 name="MockedScreen"
+                 component={component}
+                 initialParams={params}
+               />
+             </Stack.Navigator>
+           </NavigationContainer>
+         );
+         
+         it('renders screen with navigation context', () => {
+           render(<MockedNavigator component={DetailsScreen} params={{ id: '1' }} />);
+           expect(screen.getByText('Details for item 1')).toBeTruthy();
+         });
+         ```
+
+      ### Snapshot Testing
+
+      1. Component snapshots:
+         ```typescript
+         // GOOD: Focused snapshots
+         it('matches snapshot', () => {
+           const { toJSON } = render(<Button title="Press me" onPress={jest.fn()} />);
+           expect(toJSON()).toMatchSnapshot();
+         });
+         ```
+
+      2. Snapshot best practices:
+         - Use snapshots sparingly
+         - Keep snapshots small and focused
+         - Prefer explicit assertions over large snapshots
+         - Review snapshot diffs carefully during code review
+
+      ### Redux Testing
+
+      1. Testing connected components:
+         ```typescript
+         // GOOD: Test connected components
+         import { Provider } from 'react-redux';
+         import configureStore from '@/store/configureStore';
+         
+         it('renders with redux state', () => {
+           const initialState = {
+             auth: {
+               user: { id: '1', name: 'Test User' },
+               isAuthenticated: true,
+             },
+           };
+           
+           const store = configureStore(initialState);
+           
+           render(
+             <Provider store={store}>
+               <ConnectedComponent />
+             </Provider>
+           );
+           
+           expect(screen.getByText('Test User')).toBeTruthy();
+         });
+         ```
+
+      2. Testing reducers:
+         ```typescript
+         // GOOD: Test reducers
+         import { authReducer } from '@/reducers/auth';
+         import { LOGIN_SUCCESS, LOGOUT } from '@/actions/types';
+         
+         describe('authReducer', () => {
+           const initialState = {
+             user: null,
+             isAuthenticated: false,
+             loading: false,
+           };
+           
+           it('handles LOGIN_SUCCESS', () => {
+             const user = { id: '1', name: 'Test User' };
+             const action = { type: LOGIN_SUCCESS, payload: user };
+             
+             const newState = authReducer(initialState, action);
+             
+             expect(newState).toEqual({
+               user,
+               isAuthenticated: true,
+               loading: false,
+             });
+           });
+           
+           it('handles LOGOUT', () => {
+             const state = {
+               user: { id: '1', name: 'Test User' },
+               isAuthenticated: true,
+               loading: false,
+             };
+             
+             const action = { type: LOGOUT };
+             
+             const newState = authReducer(state, action);
+             
+             expect(newState).toEqual({
+               user: null,
+               isAuthenticated: false,
+               loading: false,
+             });
+           });
+         });
+         ```
+
+examples:
+  - input: |
+      import React from 'react';
+      import { render, screen, fireEvent } from '@testing-library/react-native';
+      import { useNavigation } from '@react-navigation/native';
+      import ProfileScreen from '../ProfileScreen';
+      
+      jest.mock('@react-navigation/native', () => ({
+        useNavigation: jest.fn(),
+      }));
+      
+      jest.mock('@/hooks/useAuth', () => ({
+        useAuth: jest.fn().mockReturnValue({
+          user: { id: '1', name: 'Test User' },
+          logout: jest.fn(),
+        }),
+      }));
+      
+      describe('ProfileScreen', () => {
+        beforeEach(() => {
+          jest.clearAllMocks();
+          (useNavigation as jest.Mock).mockReturnValue({
+            navigate: jest.fn(),
+          });
+        });
+        
+        it('renders user information', () => {
+          render(<ProfileScreen />);
+          expect(screen.getByText('Test User')).toBeTruthy();
+          expect(screen.getByText('Logout')).toBeTruthy();
+        });
+        
+        it('navigates to settings on press', () => {
+          const mockNavigate = jest.fn();
+          (useNavigation as jest.Mock).mockReturnValue({
+            navigate: mockNavigate,
+          });
+          
+          render(<ProfileScreen />);
+          fireEvent.press(screen.getByText('Settings'));
+          
+          expect(mockNavigate).toHaveBeenCalledWith('Settings');
+        });
+        
+        it('logs out user when logout button is pressed', () => {
+          const mockLogout = jest.fn();
+          (useAuth as jest.Mock).mockReturnValue({
+            user: { id: '1', name: 'Test User' },
+            logout: mockLogout,
+          });
+          
+          render(<ProfileScreen />);
+          fireEvent.press(screen.getByText('Logout'));
+          
+          expect(mockLogout).toHaveBeenCalled();
+        });
+      });
+    output: "Valid: Well-structured test with proper mocking and assertions"
+
+  - input: |
+      import React from 'react';
+      import renderer from 'react-test-renderer';
+      import LoginScreen from '../LoginScreen';
+      
+      test('LoginScreen renders correctly', () => {
+        const tree = renderer.create(<LoginScreen />).toJSON();
+        expect(tree).toMatchSnapshot();
+      });
+      
+      test('login button works', () => {
+        const wrapper = renderer.create(<LoginScreen />);
+        const button = wrapper.root.findByProps({ testID: 'login-button' });
+        button.props.onPress();
+        // No assertions
+      });
+    output: "Invalid: Uses test-renderer instead of Testing Library, relies on snapshots without behavior testing, and lacks assertions for button press"
+
+metadata:
+  priority: high
+  version: 1.0.0
+  tags:
+    - testing
+    - jest
+    - react-native
+    - testing-library
+</rule>
