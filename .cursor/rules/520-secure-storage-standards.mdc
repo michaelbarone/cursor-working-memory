@@ -1,0 +1,330 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Secure Storage Standards
+
+Rule for implementing secure data storage patterns in React Native applications.
+
+<rule>
+name: secure_storage_standards
+description: Ensures proper implementation of secure storage using AsyncStorage and EncryptedStorage
+filters:
+  - type: file_extension
+    pattern: "\\.(ts|tsx|js|jsx)$"
+  - type: content
+    pattern: "AsyncStorage|EncryptedStorage"
+
+actions:
+  - type: suggest
+    message: |
+      Secure Storage Best Practices:
+
+      1. Storage Type Selection:
+         - Use AsyncStorage for non-sensitive data
+         - Use EncryptedStorage for sensitive data
+         - Never store auth tokens in AsyncStorage
+         ```typescript
+         // GOOD: Proper storage selection
+         // For non-sensitive data
+         await AsyncStorage.setItem('preferences', JSON.stringify(preferences));
+         
+         // For sensitive data
+         await EncryptedStorage.setItem(
+           'user_session',
+           JSON.stringify({
+             token: 'ACCESS_TOKEN',
+             refreshToken: 'REFRESH_TOKEN',
+           })
+         );
+
+         // BAD: Storing sensitive data insecurely
+         await AsyncStorage.setItem('access_token', token); // NEVER do this
+         ```
+
+      2. Data Serialization:
+         - Always use JSON.stringify for complex objects
+         - Use proper JSON error handling
+         - Validate data types before storage
+         ```typescript
+         // GOOD: Proper serialization with error handling
+         try {
+           const jsonValue = JSON.stringify(userData);
+           await AsyncStorage.setItem('userData', jsonValue);
+         } catch (error) {
+           console.error('Error storing data', error);
+         }
+         
+         // GOOD: Proper deserialization with validation
+         try {
+           const jsonValue = await AsyncStorage.getItem('userData');
+           const userData = jsonValue != null ? JSON.parse(jsonValue) : null;
+           if (userData && typeof userData === 'object' && 'id' in userData) {
+             return userData;
+           }
+           return null;
+         } catch (error) {
+           console.error('Error retrieving data', error);
+           return null;
+         }
+         ```
+
+      3. Storage Keys:
+         - Use descriptive key names
+         - Implement key constants
+         - Group related keys with prefixes
+         ```typescript
+         // GOOD: Centralized storage keys
+         export const STORAGE_KEYS = {
+           USER_PROFILE: 'user_profile',
+           SETTINGS: 'app_settings',
+           AUTH: {
+             SESSION: 'auth_session',
+             REFRESH_TOKEN: 'auth_refresh_token',
+           },
+           ONBOARDING: {
+             COMPLETED: 'onboarding_completed',
+             LAST_SCREEN: 'onboarding_last_screen',
+           },
+         };
+         
+         // Usage
+         await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, jsonValue);
+         ```
+
+      4. Error Handling:
+         - Implement proper try-catch blocks
+         - Handle storage failures gracefully
+         - Implement fallback mechanisms
+         ```typescript
+         // GOOD: Comprehensive error handling
+         const storeData = async (key, value) => {
+           try {
+             const jsonValue = JSON.stringify(value);
+             await AsyncStorage.setItem(key, jsonValue);
+             return true;
+           } catch (error) {
+             console.error(`Error storing ${key}:`, error);
+             
+             // Attempt fallback storage if appropriate
+             if (key.startsWith('cache_')) {
+               try {
+                 // Store in memory cache instead
+                 memoryCache.set(key, value);
+                 return true;
+               } catch (fallbackError) {
+                 console.error('Fallback storage failed:', fallbackError);
+               }
+             }
+             
+             return false;
+           }
+         };
+         ```
+
+      5. Storage Cleanup:
+         - Implement proper logout cleanup
+         - Use multiRemove for related keys
+         - Maintain cleanup function
+         ```typescript
+         // GOOD: Proper storage cleanup
+         const clearUserData = async () => {
+           const userKeys = [
+             STORAGE_KEYS.USER_PROFILE,
+             STORAGE_KEYS.AUTH.SESSION,
+             STORAGE_KEYS.AUTH.REFRESH_TOKEN,
+           ];
+           
+           try {
+             await AsyncStorage.multiRemove(userKeys);
+             // For encrypted storage (must be removed individually)
+             await EncryptedStorage.removeItem(STORAGE_KEYS.AUTH.SESSION);
+           } catch (error) {
+             console.error('Error clearing user data:', error);
+           }
+         };
+         ```
+
+      6. Storage Migrations:
+         - Handle version upgrades
+         - Implement data migration patterns
+         - Maintain backward compatibility
+         ```typescript
+         // GOOD: Storage version and migration
+         const migrateStorage = async () => {
+           try {
+             const storageVersion = await AsyncStorage.getItem('STORAGE_VERSION');
+             
+             if (storageVersion === null || storageVersion === '1.0') {
+               // Migrate from version 1.0 to 2.0
+               const oldSettings = await AsyncStorage.getItem('settings');
+               if (oldSettings) {
+                 const parsedSettings = JSON.parse(oldSettings);
+                 // Transform to new format
+                 const newSettings = {
+                   theme: parsedSettings.theme || 'light',
+                   notifications: parsedSettings.notifications || {},
+                   // New fields
+                   language: 'en',
+                 };
+                 
+                 // Save in new format
+                 await AsyncStorage.setItem(
+                   STORAGE_KEYS.SETTINGS,
+                   JSON.stringify(newSettings)
+                 );
+                 
+                 // Remove old data
+                 await AsyncStorage.removeItem('settings');
+               }
+               
+               // Update version
+               await AsyncStorage.setItem('STORAGE_VERSION', '2.0');
+             }
+           } catch (error) {
+             console.error('Migration failed:', error);
+           }
+         };
+         ```
+
+      7. Storage Size Management:
+         - Limit stored data size
+         - Implement data pruning strategies
+         - Use compression for large data
+         ```typescript
+         // GOOD: Size management for large data
+         const storeLargeData = async (key, data) => {
+           // Check size and potentially compress
+           const jsonValue = JSON.stringify(data);
+           if (jsonValue.length > 1000000) { // 1MB
+             try {
+               // Use a compression library or reduce data
+               const compressedData = compressData(data);
+               await AsyncStorage.setItem(`${key}_compressed`, JSON.stringify(compressedData));
+               await AsyncStorage.setItem(`${key}_meta`, JSON.stringify({ compressed: true }));
+             } catch (error) {
+               console.error('Compression failed:', error);
+               return false;
+             }
+           } else {
+             await AsyncStorage.setItem(key, jsonValue);
+           }
+           return true;
+         };
+         ```
+
+      8. Storage Hooks:
+         - Implement custom hooks for storage
+         - Handle storage persistence logic
+         - Maintain consistent data access
+         ```typescript
+         // GOOD: Custom storage hook
+         export function useSecureStorage(key, initialValue) {
+           const [storedValue, setStoredValue] = useState(initialValue);
+           const [loading, setLoading] = useState(true);
+           const [error, setError] = useState(null);
+           
+           // Load value from storage
+           useEffect(() => {
+             async function loadStoredValue() {
+               try {
+                 setLoading(true);
+                 const value = await EncryptedStorage.getItem(key);
+                 if (value !== null) {
+                   setStoredValue(JSON.parse(value));
+                 }
+                 setError(null);
+               } catch (e) {
+                 setError(e);
+               } finally {
+                 setLoading(false);
+               }
+             }
+             
+             loadStoredValue();
+           }, [key]);
+           
+           // Update stored value
+           const setValue = useCallback(
+             async (value) => {
+               try {
+                 const valueToStore = value instanceof Function ? value(storedValue) : value;
+                 setStoredValue(valueToStore);
+                 await EncryptedStorage.setItem(key, JSON.stringify(valueToStore));
+               } catch (e) {
+                 console.error(`Error setting storage for ${key}:`, e);
+                 setError(e);
+               }
+             },
+             [key, storedValue]
+           );
+           
+           return [storedValue, setValue, loading, error];
+         }
+         ```
+
+examples:
+  - input: |
+      // Secure storage implementation
+      import AsyncStorage from '@react-native-async-storage/async-storage';
+      import EncryptedStorage from 'react-native-encrypted-storage';
+      
+      const STORAGE_KEYS = {
+        USER_SETTINGS: 'user_settings',
+        AUTH_TOKEN: 'auth_token',
+      };
+      
+      // Store authentication data
+      export async function storeAuthToken(token) {
+        try {
+          await EncryptedStorage.setItem(
+            STORAGE_KEYS.AUTH_TOKEN,
+            JSON.stringify({ token, createdAt: Date.now() })
+          );
+          return true;
+        } catch (error) {
+          console.error('Failed to store auth token', error);
+          return false;
+        }
+      }
+      
+      // Store user settings
+      export async function storeUserSettings(settings) {
+        try {
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.USER_SETTINGS,
+            JSON.stringify(settings)
+          );
+          return true;
+        } catch (error) {
+          console.error('Failed to store user settings', error);
+          return false;
+        }
+      }
+    output: "Valid secure storage implementation with proper error handling"
+
+  - input: |
+      // Insecure storage implementation
+      import AsyncStorage from '@react-native-async-storage/async-storage';
+      
+      // Store authentication
+      export async function storeAuth(token) {
+        try {
+          await AsyncStorage.setItem('token', token);
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    output: "Invalid: Storing sensitive data in AsyncStorage and poor error handling"
+
+metadata:
+  priority: high
+  version: 1.0.0
+  tags:
+    - security
+    - storage
+    - async-storage
+    - encrypted-storage
+    - react-native
+</rule>

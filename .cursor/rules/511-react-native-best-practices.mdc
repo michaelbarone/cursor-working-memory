@@ -1,0 +1,580 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# React Native Best Practices
+
+Guidelines for writing high-quality, performant, and maintainable React Native code.
+
+<rule>
+name: react_native_best_practices
+description: Comprehensive standards for React Native development focusing on component structure, performance optimization, and cross-platform compatibility
+
+filters:
+  - type: file_extension
+    pattern: "\\.(jsx?|tsx?)$"
+  - type: content
+    pattern: "react-native|StyleSheet|View|Text|FlatList"
+
+actions:
+  - type: suggest
+    message: |
+      ## React Native Best Practices
+
+      ### Component Architecture
+
+      1. Functional Components with Hooks:
+         ```typescript
+         // GOOD: Use functional components with hooks
+         import React, { useState, useEffect } from 'react';
+         import { View, Text } from 'react-native';
+         
+         interface UserProfileProps {
+           userId: string;
+         }
+         
+         const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
+           const [userData, setUserData] = useState(null);
+           
+           useEffect(() => {
+             // Fetch user data
+           }, [userId]);
+           
+           return (
+             <View>
+               <Text>User Profile</Text>
+             </View>
+           );
+         };
+         
+         export default UserProfile;
+         ```
+
+      2. Component Organization:
+         - Presentational vs Container components
+         - Keep components focused and small
+         - Extract reusable logic to custom hooks
+         ```typescript
+         // GOOD: Separation of concerns
+         // UserProfileContainer.tsx - Container component
+         const UserProfileContainer: React.FC<{ userId: string }> = ({ userId }) => {
+           const { userData, loading, error } = useUserData(userId);
+           
+           if (loading) return <LoadingSpinner />;
+           if (error) return <ErrorMessage error={error} />;
+           
+           return <UserProfileView userData={userData} />;
+         };
+         
+         // UserProfileView.tsx - Presentational component
+         const UserProfileView: React.FC<{ userData: UserData }> = ({ userData }) => (
+           <View style={styles.container}>
+             <ProfileHeader name={userData.name} avatar={userData.avatar} />
+             <ProfileDetails userData={userData} />
+           </View>
+         );
+         
+         // useUserData.ts - Custom hook
+         const useUserData = (userId: string) => {
+           const [state, setState] = useState({ userData: null, loading: true, error: null });
+           
+           useEffect(() => {
+             // Fetch logic
+           }, [userId]);
+           
+           return state;
+         };
+         ```
+
+      ### Performance Optimization
+
+      1. List Rendering:
+         ```typescript
+         // GOOD: Optimized FlatList
+         import React, { useCallback, memo } from 'react';
+         import { FlatList, View, Text } from 'react-native';
+         
+         // Memoized list item
+         const UserItem = memo(({ user }) => (
+           <View>
+             <Text>{user.name}</Text>
+           </View>
+         ));
+         
+         const UserList = ({ users }) => {
+           // Memoized render item function
+           const renderItem = useCallback(({ item }) => (
+             <UserItem user={item} />
+           ), []);
+           
+           // Memoized key extractor
+           const keyExtractor = useCallback((item) => item.id.toString(), []);
+           
+           return (
+             <FlatList
+               data={users}
+               renderItem={renderItem}
+               keyExtractor={keyExtractor}
+               initialNumToRender={10}
+               maxToRenderPerBatch={10}
+               windowSize={5}
+               removeClippedSubviews={true}
+               getItemLayout={(data, index) => ({
+                 length: 50, // fixed height items
+                 offset: 50 * index,
+                 index,
+               })}
+             />
+           );
+         };
+         ```
+
+      2. Memoization:
+         ```typescript
+         // GOOD: Effective use of memoization
+         import React, { useMemo, useCallback } from 'react';
+         
+         const ExpensiveComponent = ({ data, onPress }) => {
+           // Memoize expensive calculations
+           const processedData = useMemo(() => {
+             return data.map(item => transformData(item));
+           }, [data]);
+           
+           // Memoize callbacks
+           const handlePress = useCallback(() => {
+             onPress(processedData);
+           }, [onPress, processedData]);
+           
+           return (
+             <View>
+               {processedData.map(item => (
+                 <TouchableOpacity key={item.id} onPress={handlePress}>
+                   <Text>{item.name}</Text>
+                 </TouchableOpacity>
+               ))}
+             </View>
+           );
+         };
+         ```
+
+      3. Avoid Render Blocking:
+         ```typescript
+         // GOOD: Non-blocking UI with optimistic updates
+         const AddItemButton = () => {
+           const [isAdding, setIsAdding] = useState(false);
+           
+           const handleAdd = async () => {
+             setIsAdding(true);
+             
+             // Optimistic UI update
+             dispatch(addItemOptimistically(newItem));
+             
+             try {
+               // Actual API call in background
+               await api.addItem(newItem);
+             } catch (error) {
+               // Revert optimistic update on error
+               dispatch(revertAddItem(newItem.id));
+               Alert.alert('Error adding item');
+             } finally {
+               setIsAdding(false);
+             }
+           };
+           
+           return (
+             <Button
+               title="Add Item"
+               onPress={handleAdd}
+               disabled={isAdding}
+             />
+           );
+         };
+         ```
+
+      ### Styling Best Practices
+
+      1. StyleSheet Organization:
+         ```typescript
+         // GOOD: Organized StyleSheet
+         import { StyleSheet } from 'react-native';
+         import { colors, spacing, typography } from '@/theme';
+         
+         const styles = StyleSheet.create({
+           // Group by component
+           container: {
+             flex: 1,
+             padding: spacing.medium,
+             backgroundColor: colors.background,
+           },
+           
+           // Header group
+           header: {
+             marginBottom: spacing.large,
+           },
+           headerTitle: {
+             ...typography.h1,
+             color: colors.text.primary,
+           },
+           headerSubtitle: {
+             ...typography.body1,
+             color: colors.text.secondary,
+           },
+           
+           // Content group
+           content: {
+             flex: 1,
+           },
+           
+           // Footer group
+           footer: {
+             marginTop: spacing.large,
+             borderTopWidth: 1,
+             borderTopColor: colors.border,
+             paddingTop: spacing.medium,
+           },
+         });
+         ```
+
+      2. Theme System:
+         ```typescript
+         // GOOD: Theme-based styling
+         // theme/index.ts
+         export const colors = {
+           primary: '#1E88E5',
+           secondary: '#6C757D',
+           background: {
+             light: '#FFFFFF',
+             dark: '#121212',
+           },
+           text: {
+             primary: '#212121',
+             secondary: '#757575',
+             light: '#FFFFFF',
+           },
+           border: '#E0E0E0',
+           // ... more colors
+         };
+         
+         export const spacing = {
+           tiny: 4,
+           small: 8,
+           medium: 16,
+           large: 24,
+           xlarge: 32,
+           xxlarge: 48,
+         };
+         
+         export const typography = {
+           h1: {
+             fontSize: 24,
+             fontWeight: 'bold',
+             lineHeight: 32,
+           },
+           body1: {
+             fontSize: 16,
+             lineHeight: 24,
+           },
+           // ... more typography styles
+         };
+         
+         // Usage in component
+         import { colors, spacing, typography } from '@/theme';
+         
+         const styles = StyleSheet.create({
+           container: {
+             padding: spacing.medium,
+             backgroundColor: colors.background.light,
+           },
+           title: {
+             ...typography.h1,
+             color: colors.text.primary,
+           },
+         });
+         ```
+
+      ### Error Handling & Loading States
+
+      1. Comprehensive Error Handling:
+         ```typescript
+         // GOOD: Proper error boundaries and fallbacks
+         import React, { useState, useEffect } from 'react';
+         import { View, Text, Button } from 'react-native';
+         
+         const DataScreen = () => {
+           const [data, setData] = useState(null);
+           const [loading, setLoading] = useState(true);
+           const [error, setError] = useState(null);
+           
+           const fetchData = async () => {
+             try {
+               setLoading(true);
+               setError(null);
+               const result = await api.fetchData();
+               setData(result);
+             } catch (err) {
+               setError(err);
+               // Log error to monitoring service
+               logError(err);
+             } finally {
+               setLoading(false);
+             }
+           };
+           
+           useEffect(() => {
+             fetchData();
+           }, []);
+           
+           if (loading) {
+             return <LoadingState />;
+           }
+           
+           if (error) {
+             return (
+               <ErrorState
+                 message="Failed to load data"
+                 onRetry={fetchData}
+               />
+             );
+           }
+           
+           return (
+             <View>
+               <DataDisplay data={data} />
+             </View>
+           );
+         };
+         
+         // Reusable error state component
+         const ErrorState = ({ message, onRetry }) => (
+           <View style={styles.errorContainer}>
+             <Text style={styles.errorText}>{message}</Text>
+             <Button title="Retry" onPress={onRetry} />
+           </View>
+         );
+         ```
+
+      2. Loading States:
+         ```typescript
+         // GOOD: Skeleton screens instead of spinners
+         import React from 'react';
+         import { View, Animated } from 'react-native';
+         
+         const LoadingSkeleton = () => {
+           const pulseAnim = useRef(new Animated.Value(0.3)).current;
+           
+           useEffect(() => {
+             Animated.loop(
+               Animated.sequence([
+                 Animated.timing(pulseAnim, {
+                   toValue: 1,
+                   duration: 800,
+                   useNativeDriver: true,
+                 }),
+                 Animated.timing(pulseAnim, {
+                   toValue: 0.3,
+                   duration: 800,
+                   useNativeDriver: true,
+                 }),
+               ])
+             ).start();
+           }, []);
+           
+           return (
+             <View style={styles.container}>
+               <Animated.View
+                 style={[
+                   styles.skeletonHeader,
+                   { opacity: pulseAnim },
+                 ]}
+               />
+               <Animated.View
+                 style={[
+                   styles.skeletonItem,
+                   { opacity: pulseAnim },
+                 ]}
+               />
+               {/* More skeleton items */}
+             </View>
+           );
+         };
+         ```
+
+      ### Navigation Patterns
+
+      1. Screen Organization:
+         ```typescript
+         // GOOD: Organized navigation structure
+         // src/navigation/AppNavigator.tsx
+         import { createStackNavigator } from '@react-navigation/stack';
+         import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+         
+         // Tab navigators
+         const HomeStack = createStackNavigator();
+         const HomeNavigator = () => (
+           <HomeStack.Navigator>
+             <HomeStack.Screen name="Home" component={HomeScreen} />
+             <HomeStack.Screen name="Details" component={DetailsScreen} />
+           </HomeStack.Navigator>
+         );
+         
+         const ProfileStack = createStackNavigator();
+         const ProfileNavigator = () => (
+           <ProfileStack.Navigator>
+             <ProfileStack.Screen name="Profile" component={ProfileScreen} />
+             <ProfileStack.Screen name="Settings" component={SettingsScreen} />
+           </ProfileStack.Navigator>
+         );
+         
+         // Main tab navigator
+         const Tab = createBottomTabNavigator();
+         const AppNavigator = () => (
+           <Tab.Navigator>
+             <Tab.Screen name="HomeTab" component={HomeNavigator} />
+             <Tab.Screen name="ProfileTab" component={ProfileNavigator} />
+           </Tab.Navigator>
+         );
+         ```
+
+      2. Type-Safe Navigation:
+         ```typescript
+         // GOOD: Type-safe navigation with TypeScript
+         // navigation/types.ts
+         export type RootStackParamList = {
+           Home: undefined;
+           Details: { id: string; title: string };
+           Profile: { userId: string };
+           Settings: undefined;
+         };
+         
+         declare global {
+           namespace ReactNavigation {
+             interface RootParamList extends RootStackParamList {}
+           }
+         }
+         
+         // Usage in component
+         import { useNavigation, RouteProp, useRoute } from '@react-navigation/native';
+         import { StackNavigationProp } from '@react-navigation/stack';
+         import { RootStackParamList } from '@/navigation/types';
+         
+         type DetailsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Details'>;
+         type DetailsScreenRouteProp = RouteProp<RootStackParamList, 'Details'>;
+         
+         const DetailsScreen = () => {
+           const navigation = useNavigation<DetailsScreenNavigationProp>();
+           const route = useRoute<DetailsScreenRouteProp>();
+           
+           const { id, title } = route.params;
+           
+           const goToProfile = () => {
+             navigation.navigate('Profile', { userId: id });
+           };
+           
+           return (
+             <View>
+               <Text>{title}</Text>
+               <Button title="Go to Profile" onPress={goToProfile} />
+             </View>
+           );
+         };
+         ```
+
+examples:
+  - input: |
+      import React, { useState, useCallback, memo } from 'react';
+      import { View, FlatList, Text, StyleSheet } from 'react-native';
+      
+      interface ListItem {
+        id: string;
+        title: string;
+      }
+      
+      interface Props {
+        data: ListItem[];
+        onItemPress: (item: ListItem) => void;
+      }
+      
+      const ItemComponent = memo(({ item, onPress }: { 
+        item: ListItem; 
+        onPress: () => void 
+      }) => (
+        <View style={styles.item}>
+          <Text style={styles.title}>{item.title}</Text>
+        </View>
+      ));
+      
+      const OptimizedList: React.FC<Props> = ({ data, onItemPress }) => {
+        const renderItem = useCallback(({ item }) => (
+          <ItemComponent 
+            item={item} 
+            onPress={() => onItemPress(item)} 
+          />
+        ), [onItemPress]);
+        
+        const keyExtractor = useCallback((item: ListItem) => item.id, []);
+        
+        return (
+          <FlatList
+            data={data}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            initialNumToRender={10}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+          />
+        );
+      };
+      
+      const styles = StyleSheet.create({
+        item: {
+          padding: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#eee',
+        },
+        title: {
+          fontSize: 16,
+        },
+      });
+      
+      export default OptimizedList;
+    output: "Valid: Optimized list component with proper memoization and FlatList configuration"
+
+  - input: |
+      import React, { Component } from 'react';
+      import { View, Text, ScrollView } from 'react-native';
+      
+      class PoorPerformanceList extends Component {
+        constructor(props) {
+          super(props);
+          this.state = {
+            items: Array.from({ length: 100 }).map((_, i) => ({ id: i, text: `Item ${i}` }))
+          };
+        }
+        
+        render() {
+          return (
+            <ScrollView>
+              {this.state.items.map(item => (
+                <View key={item.id} style={{ padding: 20, marginVertical: 10 }}>
+                  <Text>{item.text}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          );
+        }
+      }
+      
+      export default PoorPerformanceList;
+    output: "Invalid: Uses ScrollView instead of FlatList for long lists, class component instead of functional, and inline styles"
+
+metadata:
+  priority: high
+  version: 1.0.0
+  tags:
+    - react-native
+    - performance
+    - best-practices
+    - component-architecture
+</rule>
